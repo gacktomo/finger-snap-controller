@@ -1,16 +1,22 @@
-import pyaudio
 import numpy as np
-import urllib.request
+import pyaudio
 import threading
-    
-def light(FLG):
-    urllib.request.urlopen( "http://192.168.10.200/light.php?num="+str(FLG) )
+from subprocess import Popen, PIPE
 
-CHUNK=2048
+def action(STAT):
+    scpt = b'set volume with output muted'
+    if STAT == True:
+        scpt = b'set volume without output muted'
+    p = Popen(['osascript', '-'] , stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    stdout,stderr = p.communicate(scpt)
+    #print(p.returncode, stdout, stderr)
+
+CHUNK=4096
 RATE=44100
-LIGHT_FLG = 3
+STATUS = False
 p=pyaudio.PyAudio()
 
+print('waiting finger snap ...')
 stream=p.open(  format = pyaudio.paInt16,
     channels = 1,
     rate = RATE,
@@ -22,16 +28,13 @@ while stream.is_active():
     input = stream.read(CHUNK)
     data = np.frombuffer(input, dtype="int16")
     if len(data[data>30000])>0 :
-        print(data[data>30000])
-        th_me = threading.Thread(target=light, name="th_me", args=(LIGHT_FLG,)) 
+        th_me = threading.Thread(target=action, name="th_me", args=(STATUS,))
         th_me.start()
-        print(str(LIGHT_FLG)+" is on!")
-        if LIGHT_FLG==3:
-            LIGHT_FLG = 4
-        elif LIGHT_FLG==4:
-            LIGHT_FLG = 3
+        if STATUS==False:
+            STATUS = True
+        elif STATUS==True:
+            STATUS = False
 
 stream.stop_stream()
 stream.close()
 p.terminate()
-
